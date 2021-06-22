@@ -12,7 +12,6 @@ import getpass
 from pathlib import Path
 import sqlalchemy as sa
 from sqlalchemy.exc import OperationalError
-
 from sqlalchemy.sql import text
 
 engine = sa.create_engine('mssql+pyodbc://localhost/Perlyna?driver=SQL+Server+Native+Client+11.0')
@@ -28,17 +27,17 @@ def connection():
         engine.connect()
     except (pyodbc.InterfaceError, sa.exc.InterfaceError, OperationalError):
         with sa.create_engine('mssql+pyodbc://localhost/master?driver=SQL+Server+Native+Client+11.0').connect() as con:
-            with open(str(Path(os.getcwd()).parent) + r"\create_db.sql") as create_db:
+            with open(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + r"\create_db.sql") as create_db:
                 db_query = text(create_db.read())
                 con.execute(db_query)
         engine = sa.create_engine('mssql+pyodbc://localhost/Perlyna?driver=SQL+Server+Native+Client+11.0')
         with engine.connect() as con:
-            with open(str(Path(os.getcwd()).parent) + r"\Perlyna.sql") as perlyna:
+            with open(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + r"\Perlyna.sql") as perlyna:
                 perlyna_query = text(perlyna.read())
                 con.execute(perlyna_query)
     with engine.connect() as con:
         if con.execute("SELECT COUNT(*) FROM SYSOBJECTS WHERE xtype = 'U'").fetchone()[0] == 0:
-            with open(str(Path(os.getcwd()).parent) + r"\Perlyna.sql") as perlyna:
+            with open(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + r"\Perlyna.sql") as perlyna:
                 perlyna_query = text(perlyna.read())
                 con.execute(perlyna_query)
 
@@ -79,7 +78,8 @@ def collect_reports():
 
 
 def all_restaurants():
-    data = pd.read_sql_query("SELECT * FROM Restaurant WHERE country <> 'None';", engine)
+    data = pd.read_sql_query(
+        "SELECT [id] ,[franchise_owner_id] ,[country] ,[city] ,[street] ,[building_number] FROM [Restaurant];", engine)
     if data.empty:
         print("Table Restaurants is empty")
     else:
@@ -403,7 +403,7 @@ def new_restaurant():
 
     if authorize():
 
-        file_path = str(Path(os.getcwd()).parent)
+        file_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         shutil.copytree(os.path.join(file_path, "restaurant\\"), os.path.join(db_location, db_name))
         with engine.connect() as conn:
             conn.execute(rf"""
@@ -460,9 +460,4 @@ def new_restaurant():
         with open(str(db_location + fr"\{db_name}\py\settings.py").replace('\\\\', '\\'), "w+") as file:
             file.write(f"db_name = '{db_name}'\ndb_password = '{db_password}'")
 
-        with sa.create_engine(
-                f'mssql+pyodbc://{db_name}:{db_password}@localhost/{db_name}?driver=SQL+Server+Native+Client+11.0').connect() as con:
-            with open(str(Path(os.getcwd()).parent) + r"\create_db.sql") as create_db:
-                db_query = text(create_db.read())
-                con.execute(db_query)
 
